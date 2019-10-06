@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "io.grpc.examples.helloworld";
+option java_outer_classname = "HelloWorldProto";
+option objc_class_prefix = "HLW";
+
+package nanoproto;
+
+service Nano {
+  rpc BlocksInfo (BlocksInfoRequest) returns (BlocksInfoReply) {}
+}
+
+message BlocksInfoRequest {
+  repeated string hashes = 1;
+}
+
+message Block {
+  string block_account =1;
+  string amount = 2;
+  string balance = 3;
+  string height = 4;
+  string local_timestamp = 5;
+  string confirmed = 6;
+  BlockContents contents = 7;
+  string subtype = 8;
+
+}
+
+message BlockContents {
+  string type = 1;
+  string account = 2;
+  string previous = 3;
+  string representative = 4;
+  string balance = 5;
+  string link = 6;
+  string link_as_account = 7;
+  string signature = 8;
+  string work = 9;
+}
+
+message BlocksInfoReply {
+  map<string, Block> blocks = 1;
+}
