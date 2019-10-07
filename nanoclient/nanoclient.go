@@ -7,12 +7,13 @@ import (
 	"log"
 	"sync/atomic"
 )
-type INanoClient interface{
+
+type INanoClient interface {
 	Init()
-	Get(request []byte) ([]byte, *nanoipc.Error)
+	Get(request []byte) ([]byte, error)
 }
 
-type NanoClient struct{
+type NanoClient struct {
 	// Session pool
 	sessions      []*nanoipc.Session
 	nextsession   int32
@@ -27,9 +28,9 @@ type ConfNode struct {
 
 func (client *NanoClient) Init() {
 
-	client.conf = & ConfNode{
+	client.conf = &ConfNode{
 		Connection: "local:///tmp/nano",
-		Poolsize: 1,
+		Poolsize:   1,
 	}
 
 	if configBytes, err := ioutil.ReadFile("config.json"); err != nil {
@@ -82,6 +83,27 @@ func (client *NanoClient) getSession() *nanoipc.Session {
 	return client.sessions[next]
 }
 
-func (client *NanoClient) Get(request []byte) ([]byte, *nanoipc.Error) {
-	return client.getSession().Request(string(request))
+func (client *NanoClient) Get(request []byte) ([]byte, error) {
+	var err *nanoipc.Error
+	var reply []byte
+
+	if client.needReconnect {
+		if err = client.tryConnectNode(); err == nil {
+			log.Println("Reconnected successfully to node")
+		}
+	}
+
+	reply, err = client.getSession().Request(string(request))
+
+	if err!=nil && err.Category == "Network" {
+		if err = client.reconnectNode(); err != nil {
+			log.Println("Unable to reconnect to node")
+		}
+	}
+
+	if err == nil {
+		return reply, nil
+	} else {
+		return reply, err
+	}
 }
