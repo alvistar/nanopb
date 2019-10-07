@@ -16,7 +16,7 @@
  *
  */
 
-//go:generate protoc -I ../nanoproto --go_out=plugins=grpc:../nanoproto ../nanoproto/nanoproto.proto
+//go:generate protoc -I ../nanoproto --go_out=plugins=grpc:../nanoproto ../nanoproto/nano.proto
 
 // Package main implements a Server for Greeter service.
 package main
@@ -27,6 +27,7 @@ import (
 	"github.com/alvistar/gonano/nanoclient"
 	pb "github.com/alvistar/gonano/nanoproto"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"log"
 	"net"
@@ -44,46 +45,42 @@ func (server *Server) init () {
 	server.client.Init()
 }
 
+func (server *Server) handler(request interface{}, reply proto.Message) error {
+	data, err := json.Marshal(request)
+
+	if err != nil {
+		log.Printf("error marshaling json: %s", err)
+		return  err}
+
+	jreply, err := server.client.Get(data)
+
+	if err != nil {
+		log.Printf("error from nano ipc: %s", err)
+		return  err}
+
+	if err := jsonpb.UnmarshalString(string(jreply), reply); err != nil {
+		log.Printf("error unmarshalling json: %s", err)
+		return err
+	}
+
+	return nil
+}
+
 func (server *Server) BlocksInfo(ctx context.Context, pbRequest *pb.BlocksInfoRequest) (*pb.BlocksInfoReply, error) {
-	type BlockInfoRequest struct {
-		Action string `json:"action"`
-		JsonBlock string `json:"json_block"`
-		Hashes []string `json:"hashes"`
-	}
-	
-	request := BlockInfoRequest{
-		Action:    "blocks_info",
-		JsonBlock: "true",
-		Hashes:    pbRequest.Hashes,
+	request := map[string]interface{} {
+		"action": "blocks_info",
+		"json_block": "true",
+		"hashes": pbRequest.Hashes,
 	}
 
-	data,_ := json.Marshal(request)
-
-	jreply,_ := server.client.Get(data)
-
-	//jsonparser.ObjectEach(jreply,
-	//			func(key []byte, value []byte, dataType jsonparser.ValueType, offset int) error {
-	//				fmt.Printf("Key: '%s'\n Value: '%s'\n Type: %s\n", string(key), string(value), dataType)
-	//				return nil
-	//			}, "blocks")
-
-	println(string(jreply))
 	reply := pb.BlocksInfoReply {}
 
-	if err := jsonpb.UnmarshalString(string(jreply), &reply); err != nil {
-		log.Printf("error unmarshalling json: %s", err)
+	if err:=server.handler(request, &reply); err != nil {
 		return nil, err
 	}
 
 	return &reply, nil
 }
-
-// SayHello implements helloworld.GreeterServer
-//func (s *Server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
-//	log.Printf("Received: %v", in.GetName())
-//	return &pb.HelloReply{Message: "Hello " + in.GetName()}, nil
-//}
-
 
 func main() {
 	lis, err := net.Listen("tcp", port)

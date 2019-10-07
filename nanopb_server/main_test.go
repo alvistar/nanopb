@@ -7,6 +7,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -59,7 +60,8 @@ func TestBlocksInfo(t *testing.T) {
 	client.AssertCalled(t, "Get", jsonMatch(t, expected))
 	assert.Nil(t, err)
 	msh := jsonpb.Marshaler{OrigName: true}
-	replys, _ := msh.MarshalToString(reply)
+	replys, err := msh.MarshalToString(reply)
+	require.Nil(t, err)
 	assert.JSONEq(t, string(returned), replys)
 	assert.Equal(t, "30000000000000000000000000000000000", reply.Blocks["87434F8041869A01C8F6F263B87972D7BA443A72E0A97D7A3FD0CCC2358FD6F9"].Amount)
 }
