@@ -11,7 +11,29 @@ import (
 	"testing"
 )
 
-func jsonMatch(t *testing.T, expected string) interface{} {
+var token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzb21lIjoicGF5bG9hZCJ9.E-l6kPchs7uJXSoCuS2XcPjhJJlZrcqPfw39AdHS_gp_rLrzESMPU6M5R-TBB9Teb6W0P63pDlYBG0Rm82sblRDQfpCgpPY9E2M2xzISYQHRGcnc6reuviirISzTA3LNSKkJHYw2kSqxtohRFF56DIditTB28TDFRB0dN9T08aCTlZOIrUTBWdlROD0dXdiJ8Spyh1VpQbxOq7rSzaiEmTruiH-JErCtPxXphKI4ZUG48m0aR-K6RMmIhC9bX8KVPMHQLYSckFdUxyFQJU56Rn-OcB3AhiIN_rvTJ3qpRtUAxo-Fe09mobfFyKHxZYdYDlZi_jf6pjOup8AbcCD4Og"
+var pubkey = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsg5BDY/YFhgoU2xmvOo0
+vzauJGUUUPufHXyhZI6fb/a7MTRXAnZBexzVv3V6SyKNBpbskUMleIbYjFWJiARO
+k/tnr6smQTWW+pkC2kftdfA3jmBL1gJuqift3M5MARfAOkGT3gsP2Z/coml3kEBl
+EU/fspus0xrSNU/T3op6UIQhL80YgW/rvGaDifSFmEevBWA9KZHHU/qYgLea2ETF
+mxtlT0SgCIFMiMbHJGjkeQYhUo5tTRvssuZgz8Ks/81YF+GYdzGL4DQhLODF7fc6
+TduTckMWs+2b6NMcwlEJCF0NCRiTl9YL4nZJP4hrpnjUaZVEtJ6/Yms8B6AFvzjI
+2QIDAQAB
+-----END PUBLIC KEY-----`
+
+var pubkeywrong = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsg5BDY/YFhgoU2xmvOo0
+vzauJGUUUPufHXyhZI6fb/a7MTRXAnZBexzVv3V6SyKNBpbskUMleIbYjFWJiARO
+k/tnr6smQTWW+pkC2kftdfB3jmBL1gJuqift3M5MARfAOkGT3gsP2Z/coml3kEBl
+EU/fspus0xrSNU/T3op6UIQhL80YgW/rvGaDifSFmEevBWA9KZHHU/qYgLea2ETF
+mxtlT0SgCIFMiMbHJGjkeQYhUo5tTRvssuZgz8Ks/81YF+GYdzGL4DQhLODF7fc6
+TduTckMWs+2b6NMcwlEJCF0NCRiTl9YL4nZJP4hrpnjUaZVEtJ6/Yms8B6AFvzjI
+2QIDAQAB
+-----END PUBLIC KEY-----`
+
+
+	func jsonMatch(t *testing.T, expected string) interface{} {
 	return mock.MatchedBy(func(x []byte) bool {
 		assert.JSONEq(t, expected, string(x))
 		return true
@@ -49,7 +71,7 @@ func TestBlocksInfo(t *testing.T) {
   }
 }`)
 	client.On("Get", mock.Anything).Return(returned, nil)
-	var s = Server{client: &client}
+	var s = main.Server{client: &client}
 	var msg = pb.BlocksInfoRequest{
 		Hashes:[]string{"1234"},
 	}
@@ -64,6 +86,15 @@ func TestBlocksInfo(t *testing.T) {
 	require.Nil(t, err)
 	assert.JSONEq(t, string(returned), replys)
 	assert.Equal(t, "30000000000000000000000000000000000", reply.Blocks["87434F8041869A01C8F6F263B87972D7BA443A72E0A97D7A3FD0CCC2358FD6F9"].Amount)
+}
+
+func TestValid(t *testing.T) {
+	assert.True(t, valid([]string{token}, []byte(pubkey)))
+}
+
+func TestValidWrongKey(t *testing.T) {
+	assert.False(t, valid([]string{token}, []byte(pubkeywrong)))
+
 }
 
 //func TestJSON (t *testing.T) {
