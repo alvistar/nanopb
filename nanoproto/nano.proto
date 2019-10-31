@@ -11,6 +11,50 @@ service Nano {
   rpc BlocksInfo (BlocksInfoRequest) returns (BlocksInfoReply) {}
   rpc Subscribe (SubscribeRequest) returns (stream SubscriptionEntry) {}
   rpc AccountsBalances (AccountsBalancesRequest) returns (AccountsBalancesReply) {}
+  rpc AccountBalance (AccountBalanceRequest) returns (AccountBalanceReply) {}
+  rpc AccountCreate (AccountCreateRequest) returns (AccountCreateReply) {}
+  rpc ValidateAccountNumber (ValidateAccountNumberRequest) returns (ValidateAccountNumberReply) {}
+  rpc Send (SendRequest) returns (SendReply) {}
+}
+
+//Send
+message SendRequest {
+  string wallet = 1;
+  string source = 2;
+  string destination = 3;
+  string amount = 4;
+}
+
+message SendReply {
+  string block = 1;
+}
+
+//Validate Account Number
+message ValidateAccountNumberRequest {
+  string account =1;
+}
+
+message ValidateAccountNumberReply {
+  string valid = 1;
+}
+
+//Account Create
+message AccountCreateRequest {
+  string wallet = 1;
+}
+
+message AccountCreateReply {
+  string account = 1;
+}
+
+// Account Balance
+message AccountBalanceRequest {
+  string account = 1;
+}
+
+message AccountBalanceReply {
+  string balance = 1;
+  string pending = 2;
 }
 
 // Account Balances
