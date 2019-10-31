@@ -30,7 +30,7 @@ func (client *NanoClient) Init() {
 
 	client.conf = &ConfNode{
 		Connection: "local:///tmp/nano",
-		Poolsize:   1,
+		Poolsize:   3,
 	}
 
 	if configBytes, err := ioutil.ReadFile("config.json"); err != nil {
@@ -69,7 +69,7 @@ func (client *NanoClient) tryConnectNode() *nanoipc.Error {
 
 func (client *NanoClient) reconnectNode() *nanoipc.Error {
 	for _, element := range client.sessions {
-		element.Close()
+		_ = element.Close()
 	}
 	client.sessions = nil
 	client.nextsession = 0

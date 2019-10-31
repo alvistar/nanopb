@@ -9,7 +9,26 @@ package nanoproto;
 
 service Nano {
   rpc BlocksInfo (BlocksInfoRequest) returns (BlocksInfoReply) {}
+  rpc Subscribe (SubscribeRequest) returns (stream SubscriptionEntry) {}
+  rpc AccountsBalances (AccountsBalancesRequest) returns (AccountsBalancesReply) {}
 }
+
+// Account Balances
+
+message AccountsBalancesRequest {
+  repeated string accounts = 1;
+}
+
+message Balance {
+  string balance = 1;
+  string pending = 2;
+}
+
+message AccountsBalancesReply {
+  map<string, Balance> balances = 1;
+}
+
+// BlocksInfo Request
 
 message BlocksInfoRequest {
   repeated string hashes = 1;
@@ -23,6 +42,7 @@ message Block {
   string local_timestamp = 5;
   string confirmed = 6;
   BlockContents contents = 7;
+  string subtype = 8;
 }
 
 message BlockContents {
@@ -40,6 +60,12 @@ message BlockContents {
 
 message BlocksInfoReply {
   map<string, Block> blocks = 1;
+}
+
+// Subscribe Request
+
+message SubscribeRequest {
+  repeated string accounts = 1;
 }
 
 message ElectionInfo {
@@ -75,17 +101,6 @@ message SubscriptionBlock {
   string balance = 11;
   string destination = 12;
 }
-
-//message SubscriptionBlock {
-//  string block_account =1;
-//  string amount = 2;
-//  string balance = 3;
-//  string height = 4;
-//  string local_timestamp = 5;
-//  string confirmed = 6;
-//  BlockContents contents = 7;
-//  string subtype = 8;
-//}
 
 message SubscriptionEntry {
   string topic = 1;

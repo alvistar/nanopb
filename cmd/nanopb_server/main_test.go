@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
-	"github.com/alvistar/gonano/nanoclient/mocks"
+	"github.com/alvistar/gonano/internal/nanoclient/mocks"
 	pb "github.com/alvistar/gonano/nanoproto"
 	"github.com/golang/protobuf/jsonpb"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -32,21 +33,7 @@ TduTckMWs+2b6NMcwlEJCF0NCRiTl9YL4nZJP4hrpnjUaZVEtJ6/Yms8B6AFvzjI
 2QIDAQAB
 -----END PUBLIC KEY-----`
 
-
-	func jsonMatch(t *testing.T, expected string) interface{} {
-	return mock.MatchedBy(func(x []byte) bool {
-		assert.JSONEq(t, expected, string(x))
-		return true
-	})
-}
-
-func TestBasic(t *testing.T) {
-	assert.Equal(t, 1, 1)
-}
-
-func TestBlocksInfo(t *testing.T) {
-	client := mocks.INanoClient{}
-	returned := []byte(`{
+var returned = []byte(`{
   "blocks": {
     "87434F8041869A01C8F6F263B87972D7BA443A72E0A97D7A3FD0CCC2358FD6F9": {
       "block_account": "nano_1ipx847tk8o46pwxt5qjdbncjqcbwcc1rrmqnkztrfjy5k7z4imsrata9est",
@@ -70,8 +57,29 @@ func TestBlocksInfo(t *testing.T) {
     }
   }
 }`)
+
+	func jsonMatch(t *testing.T, expected string) interface{} {
+	return mock.MatchedBy(func(x []byte) bool {
+		assert.JSONEq(t, expected, string(x))
+		return true
+	})
+}
+
+func TestMain(m *testing.M) {
+	logger = log.NewEntry(log.New())
+	m.Run()
+}
+
+func TestBasic(t *testing.T) {
+	assert.Equal(t, 1, 1)
+}
+
+func TestBlocksInfo(t *testing.T) {
+
+	client := mocks.INanoClient{}
+
 	client.On("Get", mock.Anything).Return(returned, nil)
-	var s = main.Server{client: &client}
+	var s = Server{client: &client}
 	var msg = pb.BlocksInfoRequest{
 		Hashes:[]string{"1234"},
 	}
@@ -87,6 +95,46 @@ func TestBlocksInfo(t *testing.T) {
 	assert.JSONEq(t, string(returned), replys)
 	assert.Equal(t, "30000000000000000000000000000000000", reply.Blocks["87434F8041869A01C8F6F263B87972D7BA443A72E0A97D7A3FD0CCC2358FD6F9"].Amount)
 }
+
+func TestBlocksInfoError(t *testing.T) {
+
+	client := mocks.INanoClient{}
+
+	client.On("Get", mock.Anything).Return([]byte(`{"error":"myerror"}`), nil)
+	var s = Server{client: &client}
+	var msg = pb.BlocksInfoRequest{
+		Hashes:[]string{"1234"},
+	}
+	var err error
+	var reply *pb.BlocksInfoReply
+	reply, err = s.BlocksInfo(context.Background(), &msg)
+	expected := `{"action":"blocks_info", "json_block":"true", "hashes": ["1234"]}`
+	client.AssertCalled(t, "Get", jsonMatch(t, expected))
+	assert.Nil(t, reply)
+	assert.Error(t, err)
+	assert.Equal(t, "myerror", err.Error())
+
+}
+
+func TestGetAction(t *testing.T) {
+	request := pb.AccountsBalancesRequest{Accounts: []string {"123"}}
+	msg, _ := getAction(&request, "test", nil)
+
+	assert.JSONEq(t, `{"action":"test", "accounts": ["123"]}`, msg)
+}
+
+func TestGetActionWithOptions(t *testing.T) {
+	request := pb.AccountsBalancesRequest{Accounts: []string {"123"}}
+	msg, _ := getAction(&request, "test", map[string]string {"options":"opt1"})
+
+	assert.JSONEq(t, `{"action":"test", "accounts": ["123"], "options":"opt1"}`, msg)
+}
+
+//func TestReflection(t *testing.T) {
+//	request := pb.AccountsBalancesRequest{Accounts: []string {"123"}}
+//	assert.Equal(t, "account_balances", reflect.TypeOf(request).String())
+//}
+
 
 func TestValid(t *testing.T) {
 	assert.True(t, valid([]string{token}, []byte(pubkey)))

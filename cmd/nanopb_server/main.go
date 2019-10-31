@@ -16,27 +16,34 @@
  *
  */
 
-//go:generate protoc -I ../nanoproto --go_out=plugins=grpc:../nanoproto ../nanoproto/nano.proto
+//go:generate protoc -I ../../nanoproto --go_out=plugins=grpc:../../nanoproto ../../nanoproto/nano.proto
 
 // Package main implements a Server for Greeter service.
 package main
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/alvistar/gonano/nanoclient"
+	"github.com/Jeffail/gabs/v2"
+	"github.com/alvistar/gonano/internal/nanoclient"
+	"github.com/alvistar/gonano/internal/nwsclient"
 	pb "github.com/alvistar/gonano/nanoproto"
+	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	log "github.com/sirupsen/logrus"
+	"github.com/zput/zxcTool/ztLog/zt_formatter"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"io/ioutil"
-	"log"
 	"net"
+	"path"
+	"runtime"
+	"runtime/debug"
 )
 
 const (
@@ -49,16 +56,35 @@ var (
 )
 
 type Server struct {
-	client nanoclient.INanoClient
-	WSClient wsclient;
-	pubkey []byte
+	client         nanoclient.INanoClient
+	wsClient       nwsclient.WSClient
+	pubkey         []byte
+	authentication bool
 }
+
+var logger *log.Entry
+
+func getAction(message proto.Message, action string, options map[string]string) (string , error) {
+	m := jsonpb.Marshaler{}
+	orig, _:= m.MarshalToString(message)
+
+	jsonParsed, _ := gabs.ParseJSON([]byte (orig))
+	_, _ = jsonParsed.Set(action, "action")
+
+	for k,v := range options {
+		_, _ = jsonParsed.Set(v, k)
+	}
+
+	return jsonParsed.String(), nil
+}
+
 func (server *Server) init () {
+	server.authentication = false
 	server.client = & nanoclient.NanoClient{}
 	server.client.Init()
 	server.loadPubKey("key.pem")
-	server.WSClient = WSClient{}
-
+	server.wsClient = nwsclient.WSClient{}
+	server.wsClient.Init()
 }
 
 func (server *Server) loadPubKey(filename string) {
@@ -70,41 +96,70 @@ func (server *Server) loadPubKey(filename string) {
 	server.pubkey = keyData
 }
 
-func (server *Server) handler(request interface{}, reply proto.Message) error {
-	data, err := json.Marshal(request)
+func (server *Server) handler(request string, reply proto.Message) ( error) {
+	logger.Debug("IPC -< ", request)
 
-	if err != nil {
-		log.Printf("error marshaling json: %s", err)
-		return  err}
-
-	jreply, err := server.client.Get(data)
+	jreply, err := server.client.Get([]byte(request))
 
 	if err != nil {
 		log.Printf("error from nano ipc: %s", err)
 		return  err}
 
 	if err := jsonpb.UnmarshalString(string(jreply), reply); err != nil {
-		log.Printf("error unmarshalling json: %s", err)
+		// Try getting json error
+
+		if jsonParsed, err:= gabs.ParseJSON(jreply); err == nil {
+			apiErr, ok :=jsonParsed.Path("error").Data().(string)
+			if ok {
+				return errors.New(apiErr)
+			}
+		}
+
+		logger.Error("error unmarshalling json: ", err)
+		logger.Error(string(jreply))
+		debug.PrintStack()
 		return err
 	}
 
 	return nil
 }
 
-func (server *Server) BlocksInfo(ctx context.Context, pbRequest *pb.BlocksInfoRequest) (*pb.BlocksInfoReply, error) {
-	request := map[string]interface{} {
-		"action": "blocks_info",
-		"json_block": "true",
-		"hashes": pbRequest.Hashes,
-	}
+func (server *Server) AccountsBalances(ctx context.Context, pbRequest *pb.AccountsBalancesRequest) (*pb.AccountsBalancesReply, error) {
 
-	reply := pb.BlocksInfoReply {}
+	request, _ := getAction(pbRequest, "accounts_balances", nil)
 
-	if err:=server.handler(request, &reply); err != nil {
+	reply := pb.AccountsBalancesReply {}
+
+	if err:=server.handler(request, &reply); err == nil {
+		return &reply, nil
+	} else {
 		return nil, err
 	}
 
-	return &reply, nil
+}
+
+func (server *Server) BlocksInfo(ctx context.Context, pbRequest *pb.BlocksInfoRequest) (*pb.BlocksInfoReply, error) {
+	request, _ := getAction(pbRequest, "blocks_info",
+		map[string]string{"json_block":"true"} )
+
+	reply := pb.BlocksInfoReply {}
+
+	if err:=server.handler(request, &reply); err == nil {
+		return &reply, nil
+	} else {
+		return nil, err
+	}
+}
+
+func (server *Server) Subscribe(request *pb.SubscribeRequest, stream pb.Nano_SubscribeServer) error {
+		ch := make(chan pb.SubscriptionEntry)
+		server.wsClient.Subscribe(&ch, request.Accounts)
+		for entry := range ch {
+			if err := stream.Send(&entry); err != nil {
+				return err
+			}
+		}
+		return nil
 }
 
 // valid validates the authorization.
@@ -113,12 +168,12 @@ func valid(authorization []string, key []byte) bool {
 		return false
 	}
 
-	jkey, _ := jwt.ParseRSAPublicKeyFromPEM([]byte(key))
+	jkey, _ := jwt.ParseRSAPublicKeyFromPEM(key)
 
 	token, err:= jwt.Parse(authorization[0], func(token *jwt.Token) (interface{}, error) {
 		// Don't forget to validate the alg is what you expect:
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 
 		// hmacSampleSecret is a []byte containing your secret, e.g. []byte("my_secret_key")
@@ -144,6 +199,10 @@ func valid(authorization []string, key []byte) bool {
 // handler and returns an error. Otherwise, the interceptor invokes the unary
 // handler.
 func ensureValidToken(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	if info.Server.(*Server).authentication == false {
+		return handler(ctx, req)
+	}
+
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, errMissingMetadata
@@ -161,6 +220,24 @@ func ensureValidToken(ctx context.Context, req interface{}, info *grpc.UnaryServ
 
 
 func main() {
+	l := log.New()
+
+	l.SetFormatter(&zt_formatter.ZtFormatter{
+		Formatter:        nested.Formatter{
+			HideKeys: true,
+			FieldsOrder: []string{"component"},
+		},
+		CallerPrettyfier: func(f *runtime.Frame) (string, string) {
+			filename := path.Base(f.File)
+			return fmt.Sprintf("%s()", f.Function), fmt.Sprintf("%s:%d", filename, f.Line)
+		},
+	})
+
+	l.SetReportCaller(true)
+	l.SetLevel(log.DebugLevel)
+
+	logger = l.WithFields(log.Fields{"component": "npb_server"})
+
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -177,7 +254,7 @@ func main() {
 
 
 	s := grpc.NewServer(opts...)
-	server := &Server{}
+	server := &Server{authentication:false}
 	server.pubkey = nil
 	server.init()
 	pb.RegisterNanoServer(s, server)

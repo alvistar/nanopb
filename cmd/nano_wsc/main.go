@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/alvistar/gonano/internal/nswclient"
+	"github.com/alvistar/gonano/internal/nwsclient"
 	pb "github.com/alvistar/gonano/nanoproto"
 	"log"
 	"os"
@@ -12,7 +12,7 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
-	client := nswclient.WSClient{}
+	client := nwsclient.WSClient{}
 	client.Init()
 
 	mychan := make(chan pb.SubscriptionEntry)

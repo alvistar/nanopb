@@ -1,4 +1,4 @@
-package nswclient
+package nwsclient
 
 import (
 	"encoding/json"

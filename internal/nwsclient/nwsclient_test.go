@@ -1,4 +1,4 @@
-package nswclient
+package nwsclient
 
 import (
 	pb "github.com/alvistar/gonano/nanoproto"

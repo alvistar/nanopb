@@ -24,6 +24,7 @@ import (
 	pb "github.com/alvistar/gonano/nanoproto"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
+	"io"
 	"log"
 	"time"
 )
@@ -52,4 +53,28 @@ func main() {
 		log.Fatalf("could not greet: %v", err)
 	}
 	log.Printf(proto.MarshalTextString(r))
+
+	sub := &pb.SubscribeRequest{
+		Accounts: []string {"nano_1jrd1ri7dfo1gyh9iqqmtfk1aq64oi9c57xixtjdosfjwmxpkebpuruuen34"},
+	}
+
+	stream, err := c.Subscribe(context.Background(), sub)
+
+	if err != nil {
+		log.Fatal("Error creating stream")
+	}
+
+	for {
+		entry, err := stream.Recv()
+
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			log.Fatal("Fatal error ", err)
+		}
+
+		log.Println(entry)
+	}
 }
