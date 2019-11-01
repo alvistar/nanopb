@@ -1,4 +1,4 @@
-package main
+package pbserver
 
 import (
 	"context"
@@ -125,10 +125,30 @@ func TestGetAction(t *testing.T) {
 
 func TestGetActionWithOptions(t *testing.T) {
 	request := pb.AccountsBalancesRequest{Accounts: []string {"123"}}
-	msg, _ := getAction(&request, "test", map[string]string {"options":"opt1"})
+
+	transform := TransformOpt{
+		"options": str("opt1"),
+	}
+
+	msg, _ := getAction(&request, "test", transform)
 
 	assert.JSONEq(t, `{"action":"test", "accounts": ["123"], "options":"opt1"}`, msg)
 }
+
+func TestGetActionWithMultipleOptions(t *testing.T) {
+	request := pb.BlocksInfoRequest{Hashes:[]string {"123", "456"}, IncludeNotFound: true}
+
+	transform := TransformOpt{
+		"options": str("opt1"),
+		"include_not_found": boolToStr(),
+	}
+
+	msg, _ := getAction(&request, "test", transform)
+
+	assert.JSONEq(t, `{"action":"test", "hashes": ["123","456"], "options":"opt1",
+			"include_not_found":"true"}`, msg)
+}
+
 
 //func TestReflection(t *testing.T) {
 //	request := pb.AccountsBalancesRequest{Accounts: []string {"123"}}

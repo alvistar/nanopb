@@ -24,6 +24,10 @@ import (
 	"runtime/debug"
 )
 
+type TransformF = func (interface{}) interface{}
+
+type TransformOpt map[string] TransformF
+
 var logger *log.Entry
 
 var (
@@ -31,15 +35,31 @@ var (
 	errInvalidToken    = status.Errorf(codes.Unauthenticated, "invalid token")
 )
 
-func getAction(message proto.Message, action string, options map[string]string) (string , error) {
-	m := jsonpb.Marshaler{}
+func str(s string) TransformF {
+	return func (v interface{})interface{} { return s}
+}
+
+func boolToStr() TransformF {
+	return func (v interface{})interface{} {
+		if b, ok :=v.(bool); ok {
+			if b {return "true"} else {return "false"}
+		} else {
+			return "false"
+		}
+	}
+}
+
+func getAction(message proto.Message, action string, options TransformOpt) (string , error) {
+	m := jsonpb.Marshaler{
+		OrigName: true,
+	}
 	orig, _:= m.MarshalToString(message)
 
 	jsonParsed, _ := gabs.ParseJSON([]byte (orig))
 	_, _ = jsonParsed.Set(action, "action")
 
 	for k,v := range options {
-		_, _ = jsonParsed.Set(v, k)
+		_, _ = jsonParsed.Set(v(jsonParsed.Path(k).Data()), k)
 	}
 
 	return jsonParsed.String(), nil

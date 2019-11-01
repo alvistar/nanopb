@@ -76,6 +76,7 @@ message AccountsBalancesReply {
 
 message BlocksInfoRequest {
   repeated string hashes = 1;
+  bool include_not_found = 2;
 }
 
 message Block {
@@ -104,6 +105,7 @@ message BlockContents {
 
 message BlocksInfoReply {
   map<string, Block> blocks = 1;
+  repeated string blocks_not_found = 2;
 }
 
 // Subscribe Request

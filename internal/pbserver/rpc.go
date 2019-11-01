@@ -68,8 +68,13 @@ func (server *Server) AccountsBalances(ctx context.Context, pbRequest *pb.Accoun
 }
 
 func (server *Server) BlocksInfo(ctx context.Context, pbRequest *pb.BlocksInfoRequest) (*pb.BlocksInfoReply, error) {
+	transform := TransformOpt{
+		"json_block": str("true"),
+		"include_not_found": boolToStr(),
+	}
+
 	request, _ := getAction(pbRequest, "blocks_info",
-		map[string]string{"json_block": "true"})
+		transform)
 
 	reply := pb.BlocksInfoReply{}
 
