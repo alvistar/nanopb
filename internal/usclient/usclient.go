@@ -1,7 +1,7 @@
 package usclient
 
 import (
-	"github.com/alvistar/gonano/pkg/nanoipc"
+	"github.com/alvistar/nanopb/pkg/nanoipc"
 	log "github.com/sirupsen/logrus"
 	"sync/atomic"
 )

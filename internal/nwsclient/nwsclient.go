@@ -2,7 +2,7 @@ package nwsclient
 
 import (
 	"encoding/json"
-	pb "github.com/alvistar/gonano/nanoproto"
+	pb "github.com/alvistar/nanopb/nanoproto"
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/gorilla/websocket"

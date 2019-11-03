@@ -1,4 +1,4 @@
-module github.com/alvistar/gonano
+module github.com/alvistar/nanopb
 
 go 1.13
 

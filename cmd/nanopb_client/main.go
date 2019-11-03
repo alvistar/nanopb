@@ -21,7 +21,7 @@ package main
 
 import (
 	"context"
-	pb "github.com/alvistar/gonano/nanoproto"
+	pb "github.com/alvistar/nanopb/nanoproto"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
 	"io"

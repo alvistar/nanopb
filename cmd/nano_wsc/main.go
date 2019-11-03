@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/alvistar/gonano/internal/nwsclient"
-	pb "github.com/alvistar/gonano/nanoproto"
+	"github.com/alvistar/nanopb/internal/nwsclient"
+	pb "github.com/alvistar/nanopb/nanoproto"
 	"log"
 	"os"
 	"os/signal"

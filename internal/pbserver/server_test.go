@@ -2,8 +2,8 @@ package pbserver
 
 import (
 	"context"
-	"github.com/alvistar/gonano/internal/usclient/mocks"
-	pb "github.com/alvistar/gonano/nanoproto"
+	"github.com/alvistar/nanopb/internal/usclient/mocks"
+	pb "github.com/alvistar/nanopb/nanoproto"
 	"github.com/golang/protobuf/jsonpb"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"

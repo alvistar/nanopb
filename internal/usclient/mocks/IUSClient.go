@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	usclient "github.com/alvistar/gonano/internal/usclient"
+	usclient "github.com/alvistar/nanopb/internal/usclient"
 	mock "github.com/stretchr/testify/mock"
 )
 

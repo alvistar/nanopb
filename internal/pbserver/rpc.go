@@ -2,7 +2,7 @@ package pbserver
 
 import (
 	"context"
-	pb "github.com/alvistar/gonano/nanoproto"
+	pb "github.com/alvistar/nanopb/nanoproto"
 )
 
 func (server *Server) AccountBalance(ctx context.Context, pbRequest *pb.AccountBalanceRequest) (*pb.AccountBalanceReply, error) {

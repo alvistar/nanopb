@@ -1,7 +1,7 @@
 package nwsclient
 
 import (
-	pb "github.com/alvistar/gonano/nanoproto"
+	pb "github.com/alvistar/nanopb/nanoproto"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
