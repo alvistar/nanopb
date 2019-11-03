@@ -81,7 +81,7 @@ func (server *Server) Init() {
 	server.Authentication = false
 	server.usClient = &usclient.USClient{}
 	server.usClient.Init(server.USConfig)
-	server.loadPubKey("key.pem")
+	//server.loadPubKey("key.pem")
 	server.wsClient = nwsclient.WSClient{}
 	server.wsClient.Init()
 
