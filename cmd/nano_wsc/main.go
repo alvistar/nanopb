@@ -13,7 +13,7 @@ func main() {
 	signal.Notify(interrupt, os.Interrupt)
 
 	client := nwsclient.WSClient{}
-	client.Init()
+	client.Init(nil)
 
 	mychan := make(chan pb.SubscriptionEntry)
 
