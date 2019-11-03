@@ -142,14 +142,23 @@ func (server *Server) handler(request string, reply proto.Message) ( error) {
 	return nil
 }
 
+func (server *Server) unsubscribe(channel *chan pb.SubscriptionEntry) {
+	logger.Debug("unsubscribing channel")
+	server.wsClient.Unsubscribe(channel)
+}
+
 func (server *Server) Subscribe(request *pb.SubscribeRequest, stream pb.Nano_SubscribeServer) error {
 	ch := make(chan pb.SubscriptionEntry)
 	server.wsClient.Subscribe(&ch, request.Accounts)
 	for entry := range ch {
 		if err := stream.Send(&entry); err != nil {
+			server.unsubscribe(&ch)
 			return err
 		}
 	}
+
+	server.unsubscribe(&ch)
+
 	return nil
 }
 

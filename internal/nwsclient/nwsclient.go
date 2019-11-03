@@ -8,8 +8,11 @@ import (
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"net/url"
+	"sync"
 	"time"
 )
+
+
 
 func stringInSlice(a string, list []string) bool {
 	for _, b := range list {
@@ -28,7 +31,7 @@ type Subscription struct {
 type WSClient struct {
 	conn          *websocket.Conn
 	Done          chan struct{}
-	subscriptions [] Subscription
+	subscriptions sync.Map
 	logger        *log.Entry
 }
 
@@ -54,17 +57,21 @@ func (client *WSClient) subHandler(message string) {
 		client.logger.Error("error unmarshaling message: ", err.Error())
 		return
 	}
+	
+	client.subscriptions.Range(
+		func(key, value interface{}) bool {
+			subscription := value.(*Subscription)
 
-	for _, subscription := range client.subscriptions {
-		if len(subscription.accounts) == 0 ||
-			stringInSlice(entry.Message.Block.LinkAsAccount, subscription.accounts) {
+			if len(subscription.accounts) == 0 ||
+				stringInSlice(entry.Message.Block.LinkAsAccount, subscription.accounts) {
 
-			select {
-			case *subscription.channel <- entry:
-			default:
+				select {
+				case *subscription.channel <- entry:
+				default:
+				}
 			}
-		}
-	}
+			return true
+		})
 }
 
 func (client *WSClient) Subscribe(channel *chan pb.SubscriptionEntry, account []string) {
@@ -73,7 +80,12 @@ func (client *WSClient) Subscribe(channel *chan pb.SubscriptionEntry, account []
 		accounts: account,
 	}
 
-	client.subscriptions = append(client.subscriptions, s)
+	client.subscriptions.Store(channel, &s)
+
+}
+
+func (client *WSClient) Unsubscribe(channel *chan pb.SubscriptionEntry) {
+	client.subscriptions.Delete(channel)
 }
 
 func (client *WSClient) Close() {

@@ -88,7 +88,7 @@ func (server *Server) BlockInfo(ctx context.Context, pbRequest *pb.BlockInfoRequ
 func (server *Server) BlocksInfo(request *pb.BlocksInfoRequest, stream pb.Nano_BlocksInfoServer) error {
 	for _, hash := range request.Hashes {
 		bir := pb.BlockInfoRequest{Hash: hash}
-		bip, err := server.BlockInfo(nil, &bir)
+		bip, err := server.BlockInfo(context.Background(), &bir)
 
 		if err != nil {
 			return err
