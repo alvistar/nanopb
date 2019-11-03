@@ -26,8 +26,9 @@ type Subscription struct {
 }
 
 type WSClient struct {
-	conn          *websocket.Conn
 	Done          chan struct{}
+	LocalAccounts bool
+	conn          *websocket.Conn
 	subscriptions sync.Map
 	logger        *log.Entry
 }
@@ -38,7 +39,9 @@ func (client *WSClient) wsprocess() {
 	for {
 		_, message, err := client.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsCloseError(err, 1000) {return}
+			if websocket.IsCloseError(err, 1000) {
+				return
+			}
 			client.logger.Error("read:", err)
 			return
 		}
@@ -50,12 +53,11 @@ func (client *WSClient) wsprocess() {
 func (client *WSClient) subHandler(message string) {
 	entry := pb.SubscriptionEntry{}
 
-
 	if err := jsonpb.UnmarshalString(message, &entry); err != nil {
 		client.logger.Error("error unmarshaling message: ", err.Error())
 		return
 	}
-	
+
 	client.subscriptions.Range(
 		func(key, value interface{}) bool {
 			subscription := value.(*Subscription)
@@ -129,6 +131,12 @@ func (client *WSClient) Init(l *log.Logger) {
 		//"options": map[string]interface{} {
 		//	"accounts": accounts,
 		//},
+	}
+
+	if client.LocalAccounts {
+		request["options"]= map[string]interface{} {
+			"all_local_accounts": true,
+		}
 	}
 
 	data, _ := json.Marshal(request)

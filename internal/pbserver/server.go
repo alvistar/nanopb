@@ -66,19 +66,18 @@ func getAction(message proto.Message, action string, options TransformOpt) (stri
 }
 
 type Server struct {
-	USConfig       *usclient.ConfNode
-	usClient       usclient.IUSClient
-	wsClient       nwsclient.WSClient
-	PubKey         []byte
-	Authentication bool
+	USConfig      *usclient.ConfNode
+	usClient      usclient.IUSClient
+	wsClient      nwsclient.WSClient
+	PubKey        []byte
+	LocalAccounts bool
 }
 
 func (server *Server) Init(l *log.Logger) {
-	server.Authentication = false
 	server.usClient = &usclient.USClient{}
 	server.usClient.Init(server.USConfig, l)
 	//server.loadPubKey("key.pem")
-	server.wsClient = nwsclient.WSClient{}
+	server.wsClient = nwsclient.WSClient{LocalAccounts: server.LocalAccounts}
 	server.wsClient.Init(l)
 
 	if l == nil {
@@ -183,9 +182,6 @@ func valid(authorization []string, key []byte) bool {
 // handler and returns an error. Otherwise, the interceptor invokes the unary
 // handler.
 func EnsureValidToken(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	if !info.Server.(*Server).Authentication {
-		return handler(ctx, req)
-	}
 
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {

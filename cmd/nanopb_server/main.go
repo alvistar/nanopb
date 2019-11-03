@@ -87,9 +87,6 @@ func setupLog(debug bool) *log.Logger{
 		l.SetLevel(log.InfoLevel)
 	}
 
-
-
-
 	return l
 }
 
@@ -123,6 +120,9 @@ func main() {
 
 	debug := parser.Flag("D", "debug",
 		&argparse.Options{Help: "Enable detail debug log"})
+
+	localAccounts := parser.Flag("", "localaccounts",
+		&argparse.Options{Help: "Subscribe to confirmation of local accounts only"})
 
 	err := parser.Parse(os.Args)
 
@@ -200,7 +200,9 @@ func main() {
 	s := grpc.NewServer(opts...)
 	server := &pbserver.Server{
 		USConfig: &confnode,
-		Authentication:false}
+		LocalAccounts: *localAccounts,
+	}
+
 	server.PubKey = nil
 	server.Init(logger)
 	pb.RegisterNanoServer(s, server)
