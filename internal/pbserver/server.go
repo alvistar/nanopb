@@ -8,19 +8,15 @@ import (
 	"github.com/alvistar/nanopb/internal/nwsclient"
 	"github.com/alvistar/nanopb/internal/usclient"
 	pb "github.com/alvistar/nanopb/nanoproto"
-	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
-	"github.com/zput/zxcTool/ztLog/zt_formatter"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"io/ioutil"
-	"path"
-	"runtime"
 	"runtime/debug"
 )
 
@@ -77,29 +73,17 @@ type Server struct {
 	Authentication bool
 }
 
-func (server *Server) Init() {
+func (server *Server) Init(l *log.Logger) {
 	server.Authentication = false
 	server.usClient = &usclient.USClient{}
-	server.usClient.Init(server.USConfig)
+	server.usClient.Init(server.USConfig, l)
 	//server.loadPubKey("key.pem")
 	server.wsClient = nwsclient.WSClient{}
-	server.wsClient.Init()
+	server.wsClient.Init(l)
 
-	l := log.New()
-
-	l.SetFormatter(&zt_formatter.ZtFormatter{
-		Formatter: nested.Formatter{
-			HideKeys:    true,
-			FieldsOrder: []string{"component"},
-		},
-		CallerPrettyfier: func(f *runtime.Frame) (string, string) {
-			filename := path.Base(f.File)
-			return fmt.Sprintf("%s()", f.Function), fmt.Sprintf("%s:%d", filename, f.Line)
-		},
-	})
-
-	l.SetReportCaller(true)
-	l.SetLevel(log.DebugLevel)
+	if l == nil {
+		l = log.New()
+	}
 
 	logger = l.WithFields(log.Fields{"component": "npb_server"})
 }

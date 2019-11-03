@@ -7,7 +7,7 @@ import (
 )
 
 type IUSClient interface {
-	Init(conf *ConfNode)
+	Init(conf *ConfNode, l *log.Logger)
 	Get(request []byte) ([]byte, error)
 }
 
@@ -24,7 +24,16 @@ type ConfNode struct {
 	PoolSize   int    `json:"poolsize"`
 }
 
-func (client *USClient) Init(conf *ConfNode) {
+var logger *log.Entry
+
+func (client *USClient) Init(conf *ConfNode, l *log.Logger) {
+	nanoipc.Init(l)
+
+	if l == nil {
+		l = log.New()
+	}
+
+	logger = l.WithFields(log.Fields{"component": "us_client"})
 
 	if conf == nil {
 		client.conf = &ConfNode{
@@ -48,14 +57,14 @@ func (client *USClient) tryConnectNode() *nanoipc.Error {
 		err = session.Connect(client.conf.Connection)
 	}
 	if len(client.sessions) < client.conf.PoolSize {
-		log.Println("Reconnection attempt required")
+		logger.Info("Reconnection attempt required")
 		client.needReconnect = true
 	} else {
 		client.needReconnect = false
 	}
 
 	if err != nil {
-		log.Println(err.Message)
+		logger.Error(err.Message)
 	}
 
 	return err
@@ -83,7 +92,7 @@ func (client *USClient) Get(request []byte) ([]byte, error) {
 
 	if client.needReconnect {
 		if err = client.tryConnectNode(); err == nil {
-			log.Println("Reconnected successfully to node")
+			logger.Info("Reconnected successfully to node")
 		}
 	}
 
@@ -91,7 +100,7 @@ func (client *USClient) Get(request []byte) ([]byte, error) {
 
 	if err!=nil && err.Category == "Network" {
 		if err = client.reconnectNode(); err != nil {
-			log.Println("Unable to reconnect to node")
+			logger.Error("Unable to reconnect to node")
 		}
 	}
 

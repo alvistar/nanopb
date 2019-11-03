@@ -3,7 +3,6 @@ package nwsclient
 import (
 	"encoding/json"
 	pb "github.com/alvistar/nanopb/nanoproto"
-	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
@@ -11,8 +10,6 @@ import (
 	"sync"
 	"time"
 )
-
-
 
 func stringInSlice(a string, list []string) bool {
 	for _, b := range list {
@@ -52,6 +49,7 @@ func (client *WSClient) wsprocess() {
 
 func (client *WSClient) subHandler(message string) {
 	entry := pb.SubscriptionEntry{}
+
 
 	if err := jsonpb.UnmarshalString(message, &entry); err != nil {
 		client.logger.Error("error unmarshaling message: ", err.Error())
@@ -103,23 +101,23 @@ func (client *WSClient) Close() {
 	_ = client.conn.Close()
 }
 
-func (client *WSClient) Init() {
+func (client *WSClient) Init(l *log.Logger) {
 	var err error
 
 	client.Done = make(chan struct{})
 
 	u := url.URL{Scheme: "ws", Host: "127.0.0.1:7078", Path: ""}
 
-	log.SetFormatter(&nested.Formatter{
-		HideKeys: true,
-		FieldsOrder: []string{"component"},
-	})
-	client.logger = log.WithFields(log.Fields{"component": "nwsclient"})
+	if l == nil {
+		l = log.New()
+	}
+
+	client.logger = l.WithFields(log.Fields{"component": "nwsclient"})
 	client.logger.Info("connecting to ", u.String())
 
 	client.conn, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
-		log.Fatal("dial:", err)
+		client.logger.Fatal("dial:", err)
 	}
 
 	// accounts := []string{"nano_1jrd1ri7dfo1gyh9iqqmtfk1aq64oi9c57xixtjdosfjwmxpkebpuruuen34"}

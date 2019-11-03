@@ -3,8 +3,8 @@ package nanoipc
 import (
 	"context"
 	"encoding/binary"
+	log "github.com/sirupsen/logrus"
 	"io"
-	"log"
 	"net"
 	"net/url"
 	"sync"
@@ -21,6 +21,16 @@ type Session struct {
 	TimeoutReadWrite int
 	// Connection timeout. Default is 10 seconds.
 	TimeoutConnection int
+}
+
+var logger *log.Entry
+
+func Init(l *log.Logger) {
+	if l == nil {
+		l = log.New()
+	}
+
+	logger = l.WithFields(log.Fields{"component": "ipc"})
 }
 
 // Connect to a node. You can set Session#TimeoutConnection before this call, otherwise a default
@@ -56,7 +66,7 @@ func (s *Session) Connect(connectionString string) *Error {
 		if err != nil {
 			connError = &Error{1, err.Error(), "Connection"}
 			s.Connected = false
-			log.Println(err.Error())
+			logger.Error(err.Error())
 		} else {
 			s.connection = con
 			s.Connected = true
@@ -151,7 +161,7 @@ func (s *Session) Request(request string) ([]byte, *Error) {
 			}
 		}).Failure(func() {
 			errReply = sc.Err
-			log.Println(err.Error())
+			logger.Error(err.Error())
 		})
 	}
 	return bufResponse, errReply

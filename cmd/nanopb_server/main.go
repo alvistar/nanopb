@@ -30,12 +30,16 @@ import (
 	"github.com/alvistar/nanopb/internal/pbserver"
 	"github.com/alvistar/nanopb/internal/usclient"
 	pb "github.com/alvistar/nanopb/nanoproto"
+	nested "github.com/antonfisher/nested-logrus-formatter"
 	log "github.com/sirupsen/logrus"
+	"github.com/zput/zxcTool/ztLog/zt_formatter"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"io/ioutil"
 	"net"
 	"os"
+	"path"
+	"runtime"
 )
 
 func AppendCertsFromFile(pool *x509.CertPool, fileName string) error {
@@ -54,6 +58,40 @@ func AppendCertsFromFile(pool *x509.CertPool, fileName string) error {
 	return nil
 }
 
+func setupLog(debug bool) *log.Logger{
+	l := log.New()
+
+	if debug {
+
+		l.SetFormatter(&zt_formatter.ZtFormatter{
+			Formatter: nested.Formatter{
+				HideKeys:    true,
+				FieldsOrder: []string{"component"},
+			},
+			CallerPrettyfier: func(f *runtime.Frame) (string, string) {
+				filename := path.Base(f.File)
+				return fmt.Sprintf("%s()", f.Func.Name()), fmt.Sprintf("%s:%d", filename, f.Line)
+			},
+		})
+
+		l.SetReportCaller(true)
+		l.SetLevel(log.DebugLevel)
+
+	} else {
+
+		l.SetFormatter(&nested.Formatter{
+				HideKeys:    true,
+				FieldsOrder: []string{"component"},
+			})
+
+		l.SetLevel(log.InfoLevel)
+	}
+
+
+
+
+	return l
+}
 
 func main() {
 
@@ -83,6 +121,9 @@ func main() {
 	clientAuth := parser.Flag("", "clientauth",
 		&argparse.Options{Help: "Request client certificate"})
 
+	debug := parser.Flag("D", "debug",
+		&argparse.Options{Help: "Enable detail debug log"})
+
 	err := parser.Parse(os.Args)
 
 	if err != nil {
@@ -99,10 +140,12 @@ func main() {
 		}
 	}
 
+	logger := setupLog(*debug)
+
 
 	lis, err := net.Listen("tcp", *address)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		logger.Fatalf("failed to listen: %v", err)
 	}
 
 	confnode := usclient.ConfNode{
@@ -127,7 +170,7 @@ func main() {
 	if *ssl {
 		cert, err := tls.LoadX509KeyPair(*certFile, *keyFile)
 		if err != nil {
-			log.Fatalf("Error loading certificates: %s", err)
+			logger.Fatalf("Error loading certificates: %s", err)
 		}
 
 		tlsConfig := tls.Config{
@@ -138,7 +181,7 @@ func main() {
 			certpool := x509.NewCertPool()
 
 			if err:=AppendCertsFromFile(certpool, *caCert); err!=nil {
-				log.Fatal(err)
+				logger.Fatal(err)
 			}
 			tlsConfig.ClientCAs = certpool
 		}
@@ -159,9 +202,9 @@ func main() {
 		USConfig: &confnode,
 		Authentication:false}
 	server.PubKey = nil
-	server.Init()
+	server.Init(logger)
 	pb.RegisterNanoServer(s, server)
 	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		logger.Fatalf("failed to serve: %v", err)
 	}
 }
