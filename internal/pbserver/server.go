@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Jeffail/gabs/v2"
-	"github.com/alvistar/gonano/internal/nanoclient"
 	"github.com/alvistar/gonano/internal/nwsclient"
+	"github.com/alvistar/gonano/internal/usclient"
 	pb "github.com/alvistar/gonano/nanoproto"
 	nested "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/dgrijalva/jwt-go"
@@ -24,9 +24,9 @@ import (
 	"runtime/debug"
 )
 
-type TransformF = func (interface{}) interface{}
+type TransformF = func(interface{}) interface{}
 
-type TransformOpt map[string] TransformF
+type TransformOpt map[string]TransformF
 
 var logger *log.Entry
 
@@ -36,29 +36,33 @@ var (
 )
 
 func str(s string) TransformF {
-	return func (v interface{})interface{} { return s}
+	return func(v interface{}) interface{} { return s }
 }
 
 func boolToStr() TransformF {
-	return func (v interface{})interface{} {
-		if b, ok :=v.(bool); ok {
-			if b {return "true"} else {return "false"}
+	return func(v interface{}) interface{} {
+		if b, ok := v.(bool); ok {
+			if b {
+				return "true"
+			} else {
+				return "false"
+			}
 		} else {
 			return "false"
 		}
 	}
 }
 
-func getAction(message proto.Message, action string, options TransformOpt) (string , error) {
+func getAction(message proto.Message, action string, options TransformOpt) (string, error) {
 	m := jsonpb.Marshaler{
 		OrigName: true,
 	}
-	orig, _:= m.MarshalToString(message)
+	orig, _ := m.MarshalToString(message)
 
 	jsonParsed, _ := gabs.ParseJSON([]byte (orig))
 	_, _ = jsonParsed.Set(action, "action")
 
-	for k,v := range options {
+	for k, v := range options {
 		_, _ = jsonParsed.Set(v(jsonParsed.Path(k).Data()), k)
 	}
 
@@ -66,16 +70,17 @@ func getAction(message proto.Message, action string, options TransformOpt) (stri
 }
 
 type Server struct {
-	client         nanoclient.INanoClient
+	USConfig       *usclient.ConfNode
+	usClient       usclient.IUSClient
 	wsClient       nwsclient.WSClient
-	Pubkey         []byte
+	PubKey         []byte
 	Authentication bool
 }
 
 func (server *Server) Init() {
 	server.Authentication = false
-	server.client = & nanoclient.NanoClient{}
-	server.client.Init()
+	server.usClient = &usclient.USClient{}
+	server.usClient.Init(server.USConfig)
 	server.loadPubKey("key.pem")
 	server.wsClient = nwsclient.WSClient{}
 	server.wsClient.Init()
@@ -83,8 +88,8 @@ func (server *Server) Init() {
 	l := log.New()
 
 	l.SetFormatter(&zt_formatter.ZtFormatter{
-		Formatter:        nested.Formatter{
-			HideKeys: true,
+		Formatter: nested.Formatter{
+			HideKeys:    true,
 			FieldsOrder: []string{"component"},
 		},
 		CallerPrettyfier: func(f *runtime.Frame) (string, string) {
@@ -105,23 +110,24 @@ func (server *Server) loadPubKey(filename string) {
 		panic(e.Error())
 	}
 
-	server.Pubkey = keyData
+	server.PubKey = keyData
 }
 
 func (server *Server) handler(request string, reply proto.Message) ( error) {
 	logger.Debug("IPC -< ", request)
 
-	jreply, err := server.client.Get([]byte(request))
+	jreply, err := server.usClient.Get([]byte(request))
 
 	if err != nil {
 		log.Printf("error from nano ipc: %s", err)
-		return  err}
+		return err
+	}
 
 	if err := jsonpb.UnmarshalString(string(jreply), reply); err != nil {
 		// Try getting json error
 
-		if jsonParsed, err:= gabs.ParseJSON(jreply); err == nil {
-			apiErr, ok :=jsonParsed.Path("error").Data().(string)
+		if jsonParsed, err := gabs.ParseJSON(jreply); err == nil {
+			apiErr, ok := jsonParsed.Path("error").Data().(string)
 			if ok {
 				return errors.New(apiErr)
 			}
@@ -135,8 +141,6 @@ func (server *Server) handler(request string, reply proto.Message) ( error) {
 
 	return nil
 }
-
-
 
 func (server *Server) Subscribe(request *pb.SubscribeRequest, stream pb.Nano_SubscribeServer) error {
 	ch := make(chan pb.SubscriptionEntry)
@@ -157,7 +161,7 @@ func valid(authorization []string, key []byte) bool {
 
 	jkey, _ := jwt.ParseRSAPublicKeyFromPEM(key)
 
-	token, err:= jwt.Parse(authorization[0], func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(authorization[0], func(token *jwt.Token) (interface{}, error) {
 		// Don't forget to validate the alg is what you expect:
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -186,7 +190,7 @@ func valid(authorization []string, key []byte) bool {
 // handler and returns an error. Otherwise, the interceptor invokes the unary
 // handler.
 func EnsureValidToken(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	if info.Server.(*Server).Authentication == false {
+	if !info.Server.(*Server).Authentication {
 		return handler(ctx, req)
 	}
 
@@ -197,7 +201,7 @@ func EnsureValidToken(ctx context.Context, req interface{}, info *grpc.UnaryServ
 
 	// The keys within metadata.MD are normalized to lowercase.
 	// See: https://godoc.org/google.golang.org/grpc/metadata#New
-	if !valid(md["auth-token-bin"], info.Server.(*Server).Pubkey) {
+	if !valid(md["auth-token-bin"], info.Server.(*Server).PubKey) {
 		return nil, errInvalidToken
 	}
 	// Continue execution of handler after ensuring a valid token.

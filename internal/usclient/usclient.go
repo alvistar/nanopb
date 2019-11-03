@@ -1,59 +1,53 @@
-package nanoclient
+package usclient
 
 import (
-	"encoding/json"
 	"github.com/alvistar/gonano/pkg/nanoipc"
-	"io/ioutil"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"sync/atomic"
 )
 
-type INanoClient interface {
-	Init()
+type IUSClient interface {
+	Init(conf *ConfNode)
 	Get(request []byte) ([]byte, error)
 }
 
-type NanoClient struct {
+type USClient struct {
 	// Session pool
 	sessions      []*nanoipc.Session
-	nextsession   int32
+	nextSession   int32
 	conf          *ConfNode
 	needReconnect bool
 }
 
 type ConfNode struct {
 	Connection string `json:"connection"`
-	Poolsize   int    `json:"poolsize"`
+	PoolSize   int    `json:"poolsize"`
 }
 
-func (client *NanoClient) Init() {
+func (client *USClient) Init(conf *ConfNode) {
 
-	client.conf = &ConfNode{
-		Connection: "local:///tmp/nano",
-		Poolsize:   3,
-	}
-
-	if configBytes, err := ioutil.ReadFile("config.json"); err != nil {
-		log.Println("No config file found, using defaults")
-	} else {
-		if err := json.Unmarshal(configBytes, client.conf); err != nil {
-			log.Fatal(err)
+	if conf == nil {
+		client.conf = &ConfNode{
+			Connection: "local:///tmp/nano",
+			PoolSize:   3,
 		}
+	} else {
+		client.conf = conf
 	}
 
 	_ = client.tryConnectNode()
 }
 
 // Try connecting to the Nano node
-func (client *NanoClient) tryConnectNode() *nanoipc.Error {
+func (client *USClient) tryConnectNode() *nanoipc.Error {
 	var err *nanoipc.Error
 	client.sessions = make([]*nanoipc.Session, 0)
-	for i := 0; err == nil && i < client.conf.Poolsize; i++ {
+	for i := 0; err == nil && i < client.conf.PoolSize; i++ {
 		session := &nanoipc.Session{}
 		client.sessions = append(client.sessions, session)
 		err = session.Connect(client.conf.Connection)
 	}
-	if len(client.sessions) < client.conf.Poolsize {
+	if len(client.sessions) < client.conf.PoolSize {
 		log.Println("Reconnection attempt required")
 		client.needReconnect = true
 	} else {
@@ -67,23 +61,23 @@ func (client *NanoClient) tryConnectNode() *nanoipc.Error {
 	return err
 }
 
-func (client *NanoClient) reconnectNode() *nanoipc.Error {
+func (client *USClient) reconnectNode() *nanoipc.Error {
 	for _, element := range client.sessions {
 		_ = element.Close()
 	}
 	client.sessions = nil
-	client.nextsession = 0
+	client.nextSession = 0
 	return client.tryConnectNode()
 }
 
 // getSession returns the next available session in a round-robin fashion
-func (client *NanoClient) getSession() *nanoipc.Session {
-	next := atomic.AddInt32(&client.nextsession, 1)
-	next = next % int32(client.conf.Poolsize)
+func (client *USClient) getSession() *nanoipc.Session {
+	next := atomic.AddInt32(&client.nextSession, 1)
+	next = next % int32(client.conf.PoolSize)
 	return client.sessions[next]
 }
 
-func (client *NanoClient) Get(request []byte) ([]byte, error) {
+func (client *USClient) Get(request []byte) ([]byte, error) {
 	var err *nanoipc.Error
 	var reply []byte
 

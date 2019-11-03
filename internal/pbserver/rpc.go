@@ -67,20 +67,60 @@ func (server *Server) AccountsBalances(ctx context.Context, pbRequest *pb.Accoun
 
 }
 
-func (server *Server) BlocksInfo(ctx context.Context, pbRequest *pb.BlocksInfoRequest) (*pb.BlocksInfoReply, error) {
+func (server *Server) BlockInfo(ctx context.Context, pbRequest *pb.BlockInfoRequest) (*pb.BlockInfoReply, error) {
 	transform := TransformOpt{
 		"json_block": str("true"),
-		"include_not_found": boolToStr(),
 	}
 
-	request, _ := getAction(pbRequest, "blocks_info",
+	request, _ := getAction(pbRequest, "block_info",
 		transform)
 
-	reply := pb.BlocksInfoReply{}
+	reply := pb.BlockInfoReply{}
 
 	if err := server.handler(request, &reply); err == nil {
 		return &reply, nil
 	} else {
 		return nil, err
 	}
+
 }
+
+func (server *Server) BlocksInfo(request *pb.BlocksInfoRequest, stream pb.Nano_BlocksInfoServer) error {
+	for _, hash := range request.Hashes {
+		bir := pb.BlockInfoRequest{Hash: hash}
+		bip, err := server.BlockInfo(nil, &bir)
+
+		if err != nil {
+			return err
+		}
+		
+		reply := pb.BlocksInfoReply{
+			BlockHash: hash,
+			Block:     bip,
+		}
+
+		if err := stream.Send(&reply); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+//func (server *Server) BlocksInfo(ctx context.Context, pbRequest *pb.BlocksInfoRequest) (*pb.BlocksInfoReply, error) {
+//	transform := TransformOpt{
+//		"json_block": str("true"),
+//		"include_not_found": boolToStr(),
+//	}
+//
+//	request, _ := getAction(pbRequest, "blocks_info",
+//		transform)
+//
+//	reply := pb.BlocksInfoReply{}
+//
+//	if err := server.handler(request, &reply); err == nil {
+//		return &reply, nil
+//	} else {
+//		return nil, err
+//	}
+//}

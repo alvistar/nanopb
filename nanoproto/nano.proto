@@ -8,7 +8,8 @@ option objc_class_prefix = "HLW";
 package nanoproto;
 
 service Nano {
-  rpc BlocksInfo (BlocksInfoRequest) returns (BlocksInfoReply) {}
+  rpc BlocksInfo (BlocksInfoRequest) returns (stream BlocksInfoReply) {}
+  rpc BlockInfo (BlockInfoRequest) returns (BlockInfoReply) {}
   rpc Subscribe (SubscribeRequest) returns (stream SubscriptionEntry) {}
   rpc AccountsBalances (AccountsBalancesRequest) returns (AccountsBalancesReply) {}
   rpc AccountBalance (AccountBalanceRequest) returns (AccountBalanceReply) {}
@@ -72,14 +73,12 @@ message AccountsBalancesReply {
   map<string, Balance> balances = 1;
 }
 
-// BlocksInfo Request
-
-message BlocksInfoRequest {
-  repeated string hashes = 1;
-  bool include_not_found = 2;
+// BlockInfo Request
+message BlockInfoRequest {
+  string hash = 1;
 }
 
-message Block {
+message BlockInfoReply {
   string block_account =1;
   string amount = 2;
   string balance = 3;
@@ -103,9 +102,15 @@ message BlockContents {
   string subtype = 10;
 }
 
+// BlocksInfo Request
+
+message BlocksInfoRequest {
+  repeated string hashes = 1;
+}
+
 message BlocksInfoReply {
-  map<string, Block> blocks = 1;
-  repeated string blocks_not_found = 2;
+  string block_hash = 1;
+  BlockInfoReply block = 2;
 }
 
 // Subscribe Request
