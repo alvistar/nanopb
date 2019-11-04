@@ -42,7 +42,7 @@ func (server *Server) ValidateAccountNumber(ctx context.Context, pbRequest *pb.V
 }
 
 func (server *Server) Send(ctx context.Context, pbRequest *pb.SendRequest) (*pb.SendReply, error) {
-	request, _ := getAction(pbRequest, "validate_account_number", nil)
+	request, _ := getAction(pbRequest, "send", nil)
 
 	reply := pb.SendReply{}
 

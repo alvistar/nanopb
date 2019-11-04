@@ -102,7 +102,7 @@ func (server *Server) handler(request string, reply proto.Message) ( error) {
 	jreply, err := server.usClient.Get([]byte(request))
 
 	if err != nil {
-		log.Printf("error from nano ipc: %s", err)
+		logger.Error("error from nano ipc: %s", err)
 		return err
 	}
 
