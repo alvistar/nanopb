@@ -39,11 +39,13 @@ func (client *WSClient) wsprocess() {
 	for {
 		_, message, err := client.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsCloseError(err, 1000) {
-				return
-			}
+			//if websocket.IsCloseError(err, 1000) {
+			//	client.logger.Error("closing error")
+			//	return
+			//}
 			client.logger.Error("read:", err)
-			return
+			client.logger.Error("connection lost - terminating")
+			panic("connection lost with websocket")
 		}
 
 		client.subHandler(string(message))
@@ -57,6 +59,8 @@ func (client *WSClient) subHandler(message string) {
 		client.logger.Error("error unmarshaling message: ", err.Error())
 		return
 	}
+
+	client.logger.Debugln("received:", entry)
 
 	client.subscriptions.Range(
 		func(key, value interface{}) bool {
@@ -121,6 +125,8 @@ func (client *WSClient) Init(l *log.Logger) {
 	if err != nil {
 		client.logger.Fatal("dial:", err)
 	}
+
+	client.logger.Info("connected")
 
 	// accounts := []string{"nano_1jrd1ri7dfo1gyh9iqqmtfk1aq64oi9c57xixtjdosfjwmxpkebpuruuen34"}
 
